@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:provider/provider.dart';
 import 'package:flame/game.dart';
 import 'services/geolocation_service.dart';
@@ -72,45 +73,87 @@ class _GameScreenState extends State<GameScreen> {
           Positioned(
             top: 40,
             left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.deepPurpleAccent),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("ESTADO DO GPS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
-                  const SizedBox(height: 4),
-                  Text(
-                    geoService.currentPosition != null 
-                      ? "Lat: ${geoService.currentPosition!.latitude.toStringAsFixed(6)}\nLon: ${geoService.currentPosition!.longitude.toStringAsFixed(6)}"
-                      : "Buscando GPS...",
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const Divider(color: Colors.white24),
-                  Row(
-                    children: [
-                      Icon(
-                        geoService.isInsideCampus() ? Icons.check_circle : Icons.error,
-                        color: geoService.isInsideCampus() ? Colors.green : Colors.red,
-                        size: 16,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        spreadRadius: 2,
                       ),
-                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        geoService.isInsideCampus() ? "ÁREA DA PUC" : "FORA DA PUC",
+                        "ESTADO DO GPS",
                         style: TextStyle(
-                          color: geoService.isInsideCampus() ? Colors.green : Colors.red,
+                          color: Colors.white.withOpacity(0.6),
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        geoService.currentPosition != null 
+                          ? "Lat: ${geoService.currentPosition!.latitude.toStringAsFixed(6)}\nLon: ${geoService.currentPosition!.longitude.toStringAsFixed(6)}"
+                          : "Buscando satélites...",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Courier',
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: geoService.isInsideCampus() 
+                              ? [Colors.green.withOpacity(0.3), Colors.green.withOpacity(0.1)]
+                              : [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: geoService.isInsideCampus() ? Colors.greenAccent : Colors.redAccent,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              geoService.isInsideCampus() ? Icons.gps_fixed : Icons.gps_off,
+                              color: geoService.isInsideCampus() ? Colors.greenAccent : Colors.redAccent,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              geoService.isInsideCampus() ? "ÁREA DA PUC" : "FORA DA ÁREA",
+                              style: TextStyle(
+                                color: geoService.isInsideCampus() ? Colors.greenAccent : Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -119,59 +162,108 @@ class _GameScreenState extends State<GameScreen> {
             bottom: 40,
             left: 20,
             right: 20,
-            child: Container(
-              height: 100,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 10)],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("FASES DISPONÍVEIS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: geoService.levels.length,
-                      itemBuilder: (context, index) {
-                        final level = geoService.levels[index];
-                        final isUnlocked = level['unlocked'] as bool;
-                        return Container(
-                          width: 120,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            color: isUnlocked ? Colors.deepPurple.withOpacity(0.5) : Colors.grey.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isUnlocked ? Colors.purpleAccent : Colors.white24),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  isUnlocked ? Icons.lock_open : Icons.lock,
-                                  color: isUnlocked ? Colors.purpleAccent : Colors.grey,
-                                  size: 20,
-                                ),
-                                Text(
-                                  level['name'],
-                                  style: TextStyle(
-                                    color: isUnlocked ? Colors.white : Colors.grey,
-                                    fontSize: 12,
-                                    fontWeight: isUnlocked ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  height: 110, // Reduced from 120 to fix overflow
+                  padding: const EdgeInsets.all(12), // Reduced padding
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "FASES DISPONÍVEIS",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                          Icon(Icons.map_outlined, color: Colors.white.withOpacity(0.4), size: 14),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: geoService.levels.length,
+                          itemBuilder: (context, index) {
+                            final level = geoService.levels[index];
+                            final isUnlocked = level['unlocked'] as bool;
+                            return Container(
+                              width: 140,
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 4), // Added inner padding
+                              decoration: BoxDecoration(
+                                gradient: isUnlocked 
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [Colors.deepPurple.withOpacity(0.5), Colors.purpleAccent.withOpacity(0.3)],
+                                    )
+                                  : null,
+                                color: isUnlocked ? null : Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isUnlocked ? Colors.purpleAccent.withOpacity(0.6) : Colors.white.withOpacity(0.1),
+                                ),
+                              ),
+                              child: Stack(
+                                children: [
+                                  Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          isUnlocked ? Icons.explore : Icons.lock_outline,
+                                          color: isUnlocked ? Colors.purpleAccent : Colors.white24,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          level['name'],
+                                          style: TextStyle(
+                                            color: isUnlocked ? Colors.white : Colors.white38,
+                                            fontSize: 12,
+                                            fontWeight: isUnlocked ? FontWeight.bold : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isUnlocked)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.greenAccent,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [BoxShadow(color: Colors.greenAccent, blurRadius: 4)],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -183,10 +275,23 @@ class _GameScreenState extends State<GameScreen> {
               onTap: () {
                 // Open Profile
               },
-              child: const CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.blueAccent,
-                child: Icon(Icons.person, color: Colors.white, size: 40),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.deepPurpleAccent,
+                  child: Icon(Icons.person_rounded, color: Colors.white, size: 32),
+                ),
               ),
             ),
           ),

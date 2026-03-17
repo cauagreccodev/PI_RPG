@@ -1,6 +1,5 @@
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
-import 'package:flutter/material.dart';
 
 enum PlayerState { idle, walk }
 
@@ -39,7 +38,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState> with HasGameRef 
       SpriteAnimationData.sequenced(
         amount: 6,
         stepTime: 0.1,
-        textureSize: Vector2.all(100), // Soldiers are often exported with padding
+        textureSize: Vector2.all(100),
       ),
     );
 
