@@ -64,7 +64,11 @@ flutter run
 ## 👥 Equipe de Desenvolvimento
 
 *   **Leandro Nascimento Lucatelli (25007808):** Game Design & Assets. developer & logic.
+<<<<<<< HEAD
 *   **Cauã Vasconcelos Grecco de Faria (25006367):** Backend Developer.
+=======
+*   **Cauã Vasconcelos Grecco de Faria (25006367):** Frontend Developer.
+>>>>>>> 79969a30f2756953b3330b4b7e4b7d33d07fad99
 *   **Rodrigo de Faria Perico (22004955):** Lead Developer & Logic.
 *   **Gustavo Antunes (25013281):** Developer.
 *   **Pedro Henrique Vieira Lima (25018202):** Developer.
