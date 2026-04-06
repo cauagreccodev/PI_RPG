@@ -8,6 +8,9 @@ import 'models/player_state_model.dart';
 import 'ui/login_screen.dart';
 import 'ui/profile_overlay.dart';
 import 'ui/pause_overlay.dart';
+import 'dart:math';
+import 'ui/question_overlay.dart';
+import 'data/questions.dart';
 
 void main() {
   runApp(
@@ -125,6 +128,61 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  void _startPhaseChallenge(String phaseId) {
+    int phaseNum = 1; 
+    if (phaseId == 'fase_loops') phaseNum = 2;
+
+    final playerState = Provider.of<PlayerStateModel>(context, listen: false);
+    if (playerState.isPhaseDefeated(phaseId)) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A ameaça desta região já foi eliminada!')));
+       return;
+    }
+
+    final questions = QuestionsData.getQuestionsForPhase(phaseNum);
+    if (questions.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sábios ainda estão elaborando os desafios desta região!')));
+       return;
+    }
+    
+    // Sorteia uma pergunta da fase selecionada
+    final question = questions[Random().nextInt(questions.length)];
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Desafio',
+      barrierColor: Colors.black.withAlpha(200),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) => QuestionOverlay(
+        question: question,
+        onClose: () => Navigator.pop(context),
+        onCorrectAnswer: () {
+          Navigator.pop(context);
+          final pState = Provider.of<PlayerStateModel>(context, listen: false);
+          pState.markPhaseDefeated(phaseId);
+          pState.addItem(GameItem(
+            id: 'carta_cura_$phaseId',
+            name: 'Carta de Regeneração',
+            description: 'Recupera 75 HP instantaneamente.',
+            icon: '❤️',
+          ));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Boss Derrotado! Você recebeu uma Carta de Regeneração!')));
+        },
+        onWrongAnswer: () {
+          Navigator.pop(context);
+          Provider.of<PlayerStateModel>(context, listen: false).takeDamage(50);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ataque do Boss! Você perdeu 50 HP!')));
+        },
+      ),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: child,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final geoService = Provider.of<GeolocationService>(context);
@@ -132,6 +190,16 @@ class _GameScreenState extends State<GameScreen> {
 
     final locationName = geoService.isInsideCampus() ? 'REINO DA PUC' : 'TERRAS SELVAGENS';
     final locationColor = geoService.isInsideCampus() ? MedievalColors.emeraldLight : MedievalColors.crimsonLight;
+
+    Map<String, dynamic>? currentLevel;
+    for (var level in geoService.levels) {
+      if (geoService.isNearLevel(level)) {
+        currentLevel = level;
+        break;
+      }
+    }
+
+    final healCard = playerState.inventory.where((item) => item.name == 'Carta de Regeneração').firstOrNull;
 
     return Scaffold(
       body: Stack(
@@ -165,8 +233,8 @@ class _GameScreenState extends State<GameScreen> {
             right: 16,
             child: _CompactProfile(
               onTap: _openProfile,
-              lives: playerState.lives,
-              maxLives: playerState.maxLives,
+              hp: playerState.hp,
+              maxHp: playerState.maxHp,
             ),
           ),
 
@@ -177,6 +245,74 @@ class _GameScreenState extends State<GameScreen> {
             right: 16,
             child: _HorizontalMapScroll(levels: geoService.levels),
           ),
+
+          // Explore Button Overlay when near a level
+          if (currentLevel != null)
+            Positioned(
+              bottom: 100,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: playerState.isPhaseDefeated(currentLevel['id'])
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withAlpha(200),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: MedievalColors.emeraldLight, width: 2),
+                      ),
+                      child: const Text('FASE CONCLUÍDA', style: TextStyle(color: MedievalColors.parchment, fontWeight: FontWeight.bold)),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: () => _startPhaseChallenge(currentLevel!['id']),
+                      icon: const Icon(Icons.explore, color: MedievalColors.parchment),
+                      label: Text('EXPLORAR: ${currentLevel['name']}'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8B4513),
+                        foregroundColor: MedievalColors.parchment,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: MedievalColors.gold, width: 2),
+                        ),
+                        elevation: 10,
+                      ),
+                    ),
+              ),
+            ),
+            
+          // Heal Card FAB in bottom left
+          if (healCard != null)
+            Positioned(
+              bottom: 100,
+              left: 16,
+              child: GestureDetector(
+                onTap: () {
+                  if (playerState.hp >= playerState.maxHp) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seu HP já está cheio!')));
+                    return;
+                  }
+                  playerState.heal(75);
+                  playerState.removeItem(healCard.id);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Curado em 75 HP!')));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: MedievalColors.crimson,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: MedievalColors.gold, width: 2),
+                    boxShadow: [BoxShadow(color: Colors.green.withAlpha(150), blurRadius: 10)],
+                  ),
+                  child: Column(
+                    children: const [
+                      Text('❤️', style: TextStyle(fontSize: 24)),
+                      Text('USAR', style: TextStyle(color: MedievalColors.parchment, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -247,10 +383,10 @@ class _TavernButton extends StatelessWidget {
 
 class _CompactProfile extends StatelessWidget {
   final VoidCallback onTap;
-  final int lives;
-  final int maxLives;
+  final int hp;
+  final int maxHp;
 
-  const _CompactProfile({required this.onTap, required this.lives, required this.maxLives});
+  const _CompactProfile({required this.onTap, required this.hp, required this.maxHp});
 
   @override
   Widget build(BuildContext context) {
@@ -262,16 +398,7 @@ class _CompactProfile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Row(
-                children: List.generate(
-                  maxLives.clamp(0, 3),
-                  (i) => Icon(
-                    i < lives ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: i < lives ? MedievalColors.crimsonLight : Colors.grey.withAlpha(100),
-                    size: 14,
-                  ),
-                ),
-              ),
+              Text('$hp / $maxHp HP', style: const TextStyle(color: MedievalColors.crimsonLight, fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 2),
               const Text('PERFIL', style: TextStyle(color: MedievalColors.gold, fontSize: 8, fontWeight: FontWeight.bold)),
             ],

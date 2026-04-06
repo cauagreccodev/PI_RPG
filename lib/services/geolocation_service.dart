@@ -20,7 +20,7 @@ class GeolocationService extends ChangeNotifier {
       'name': 'As Ruínas da Lógica (H15)',
       'lat': -22.8330,
       'lon': -47.0515,
-      'radius': 50,
+      'radius': 30,
       'unlocked': true,
     },
     {

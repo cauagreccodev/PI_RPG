@@ -191,32 +191,52 @@ class ProfileOverlay extends StatelessWidget {
   }
 
   Widget _buildLivesCard(PlayerStateModel playerState) {
+    final double hpRatio = playerState.hp / playerState.maxHp;
     return _MedievalCard(
       title: '♥  PONTOS DE VIDA',
       titleColor: MedievalColors.crimsonLight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: List.generate(playerState.maxLives, (i) {
-              final filled = i < playerState.lives;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Icon(
-                  filled ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  color: filled ? MedievalColors.crimsonLight : MedievalColors.textMuted.withAlpha(100),
-                  size: 30,
-                  shadows: filled
-                      ? [const Shadow(color: MedievalColors.crimson, blurRadius: 10)]
-                      : null,
+          Container(
+            height: 20,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(150),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: MedievalColors.crimson.withAlpha(100), width: 1),
+            ),
+            child: Stack(
+              children: [
+                FractionallySizedBox(
+                  widthFactor: hpRatio.clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [MedievalColors.crimson, MedievalColors.crimsonLight],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
-              );
-            }),
+                Center(
+                  child: Text(
+                    '${playerState.hp} / ${playerState.maxHp}',
+                    style: const TextStyle(
+                      color: MedievalColors.parchment,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
-          Text(
-            '${playerState.lives} de ${playerState.maxLives} vidas restantes',
-            style: const TextStyle(color: MedievalColors.textMuted, fontSize: 12),
+          const Text(
+            'Seu vigor em combate',
+            style: TextStyle(color: MedievalColors.textMuted, fontSize: 12),
           ),
         ],
       ),

@@ -28,10 +28,11 @@
 
 ### Centros Acadêmicos
 O campus é dividido em núcleos de interesse, cada um representado por uma cor e cursos específicos:
-- **CEATEC (Laranja 🟠):** Engenharias e Tecnologia.
-- **CEA (Vermelho 🔴):** Economia e Administração.
-- **CLC (Azul 🔵):** Linguagem e Comunicação.
-- **CCHSA (Amarelo 🟡):** Humanas e Sociais.
+- **H15 (Laranja 🟠):** Engenharias e Tecnologia.
+- **CTA (Vermelho 🔴):** Economia e Administração.
+- **Biblioteca (Azul 🔵):** Linguagem e Comunicação.
+- **Refeitório (Amarelo 🟡):** Humanas e Sociais.
+- **CAA (Verde 🟢):** Cursos de Exatas.
 
 ### Itens Estratégicos
 - **Carta Dica:** Auxílio na resolução de bugs ou desafios lógicos.

@@ -31,41 +31,55 @@ class GameItem {
 }
 
 class PlayerStateModel extends ChangeNotifier {
-  int _lives;
-  int _maxLives;
+  int _hp;
+  int _maxHp;
   String _currentPhase;
   List<GameItem> _inventory;
+  List<String> _defeatedPhases;
 
   PlayerStateModel({
-    int lives = 3,
-    int maxLives = 5,
+    int hp = 100,
+    int maxHp = 100,
     String currentPhase = 'Início',
     List<GameItem>? inventory,
-  })  : _lives = lives,
-        _maxLives = maxLives,
+    List<String>? defeatedPhases,
+  })  : _hp = hp,
+        _maxHp = maxHp,
         _currentPhase = currentPhase,
-        _inventory = inventory ?? [];
+        _inventory = inventory ?? [],
+        _defeatedPhases = defeatedPhases ?? [];
 
-  int get lives => _lives;
-  int get maxLives => _maxLives;
+  int get hp => _hp;
+  int get maxHp => _maxHp;
   String get currentPhase => _currentPhase;
   List<GameItem> get inventory => List.unmodifiable(_inventory);
+
+  bool isPhaseDefeated(String phaseId) => _defeatedPhases.contains(phaseId);
+
+  void markPhaseDefeated(String phaseId) {
+    if (!_defeatedPhases.contains(phaseId)) {
+      _defeatedPhases.add(phaseId);
+      notifyListeners();
+    }
+  }
 
   void setPhase(String phase) {
     _currentPhase = phase;
     notifyListeners();
   }
 
-  void takeDamage() {
-    if (_lives > 0) {
-      _lives--;
+  void takeDamage(int amount) {
+    if (_hp > 0) {
+      _hp -= amount;
+      if (_hp < 0) _hp = 0;
       notifyListeners();
     }
   }
 
-  void heal() {
-    if (_lives < _maxLives) {
-      _lives++;
+  void heal(int amount) {
+    if (_hp < _maxHp) {
+      _hp += amount;
+      if (_hp > _maxHp) _hp = _maxHp;
       notifyListeners();
     }
   }
@@ -82,22 +96,24 @@ class PlayerStateModel extends ChangeNotifier {
 
   Future<void> saveGame() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('lives', _lives);
-    await prefs.setInt('maxLives', _maxLives);
+    await prefs.setInt('hp', _hp);
+    await prefs.setInt('maxHp', _maxHp);
     await prefs.setString('currentPhase', _currentPhase);
     final itemsJson = _inventory.map((i) => jsonEncode(i.toJson())).toList();
     await prefs.setStringList('inventory', itemsJson);
+    await prefs.setStringList('defeatedPhases', _defeatedPhases);
   }
 
   Future<void> loadGame() async {
     final prefs = await SharedPreferences.getInstance();
-    _lives = prefs.getInt('lives') ?? 3;
-    _maxLives = prefs.getInt('maxLives') ?? 5;
+    _hp = prefs.getInt('hp') ?? 100;
+    _maxHp = prefs.getInt('maxHp') ?? 100;
     _currentPhase = prefs.getString('currentPhase') ?? 'Início';
     final itemsJson = prefs.getStringList('inventory') ?? [];
     _inventory = itemsJson
         .map((s) => GameItem.fromJson(jsonDecode(s)))
         .toList();
+    _defeatedPhases = prefs.getStringList('defeatedPhases') ?? [];
     notifyListeners();
   }
 }
