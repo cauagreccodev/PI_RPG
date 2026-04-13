@@ -1,34 +1,74 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthUser {
+  final String id;
   final String email;
-  final String password;
   final String name;
+  final String token;
 
-  AuthUser({required this.email, required this.password, required this.name});
+  AuthUser({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.token,
+  });
 
-  Map<String, dynamic> toJson() => {
-        'email': email,
-        'password': password,
-        'name': name,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'name': name,
+      'token': token,
+    };
+  }
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
-        email: json['email'],
-        password: json['password'],
-        name: json['name'],
-      );
+  factory AuthUser.fromJson(Map<String, dynamic> json) {
+    return AuthUser(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      token: (json['token'] ?? '').toString(),
+    );
+  }
 }
 
 class AuthService extends ChangeNotifier {
+  static const String _baseUrlFromEnv = String.fromEnvironment('API_BASE_URL');
+  static const String _authTokenKey = 'auth_token';
+  static const String _authUserKey = 'auth_user';
+
   AuthUser? _currentUser;
   bool _isLoading = true;
+  String? _errorMessage;
 
   AuthUser? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _currentUser != null;
+  String? get errorMessage => _errorMessage;
+
+  /// Ordem de prioridade:
+  /// 1) --dart-define=API_BASE_URL=...
+  /// 2) Web/Desktop/iOS -> localhost
+  /// 3) Android Emulator -> 10.0.2.2
+  String get _baseUrl {
+    if (_baseUrlFromEnv.isNotEmpty) {
+      return _baseUrlFromEnv;
+    }
+
+    if (kIsWeb) {
+      return 'http://localhost:3000';
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3000';
+    }
+
+    return 'http://localhost:3000';
+  }
 
   AuthService() {
     _loadSession();
@@ -36,74 +76,159 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _loadSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('auth_user');
-    if (userJson != null) {
-      _currentUser = AuthUser.fromJson(jsonDecode(userJson));
+    final token = prefs.getString(_authTokenKey);
+
+    if (token == null || token.isEmpty) {
+      _isLoading = false;
+      notifyListeners();
+      return;
     }
-    _isLoading = false;
-    notifyListeners();
-  }
 
-  Future<bool> login(String email, String password) async {
-    final prefs = await SharedPreferences.getInstance();
-    final usersList = prefs.getStringList('registered_users') ?? [];
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/api/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-    for (var userStr in usersList) {
-      final user = AuthUser.fromJson(jsonDecode(userStr));
-      if (user.email == email && user.password == password) {
-        _currentUser = user;
-        await prefs.setString('auth_user', jsonEncode(user.toJson()));
-        notifyListeners();
-        return true;
+      if (response.statusCode == 200) {
+        final data = _decodeBody(response);
+        final rawUser = data['user'];
+        final userMap = rawUser is Map
+            ? Map<String, dynamic>.from(rawUser)
+            : <String, dynamic>{};
+
+        userMap['token'] = token;
+
+        _currentUser = AuthUser.fromJson(userMap);
+        await prefs.setString(_authUserKey, jsonEncode(_currentUser!.toJson()));
+      } else {
+        await _clearSession();
       }
+    } catch (_) {
+      await _clearSession();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    return false;
   }
 
   Future<bool> register(String email, String password, String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    final usersList = prefs.getStringList('registered_users') ?? [];
+    _errorMessage = null;
 
-    // Check if user already exists
-    for (var userStr in usersList) {
-      final user = AuthUser.fromJson(jsonDecode(userStr));
-      if (user.email == email) return false;
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      final data = _decodeBody(response);
+
+      if (response.statusCode == 201) {
+        final rawUser = data['user'];
+        final userMap = rawUser is Map
+            ? Map<String, dynamic>.from(rawUser)
+            : <String, dynamic>{};
+
+        userMap['token'] = (data['token'] ?? '').toString();
+
+        final user = AuthUser.fromJson(userMap);
+        await _saveSession(user);
+        return true;
+      }
+
+      _errorMessage =
+          (data['message'] ?? 'Não foi possível criar a conta.').toString();
+      return false;
+    } catch (_) {
+      _errorMessage =
+          'Não foi possível conectar ao backend. Verifique se a API está rodando.';
+      return false;
     }
+  }
 
-    final newUser = AuthUser(email: email, password: password, name: name);
-    usersList.add(jsonEncode(newUser.toJson()));
-    await prefs.setStringList('registered_users', usersList);
-    
-    // Auto login
-    _currentUser = newUser;
-    await prefs.setString('auth_user', jsonEncode(newUser.toJson()));
-    notifyListeners();
-    return true;
+  Future<bool> login(String email, String password) async {
+    _errorMessage = null;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      final data = _decodeBody(response);
+
+      if (response.statusCode == 200) {
+        final rawUser = data['user'];
+        final userMap = rawUser is Map
+            ? Map<String, dynamic>.from(rawUser)
+            : <String, dynamic>{};
+
+        userMap['token'] = (data['token'] ?? '').toString();
+
+        final user = AuthUser.fromJson(userMap);
+        await _saveSession(user);
+        return true;
+      }
+
+      _errorMessage =
+          (data['message'] ?? 'Não foi possível entrar na conta.').toString();
+      return false;
+    } catch (_) {
+      _errorMessage =
+          'Não foi possível conectar ao backend. Verifique se a API está rodando.';
+      return false;
+    }
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_user');
-    _currentUser = null;
+    await _clearSession();
     notifyListeners();
   }
 
-  Future<bool> loginWithProvider(String provider) async {
-    _isLoading = true;
+  Future<void> _saveSession(AuthUser user) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    _currentUser = user;
+
+    await prefs.setString(_authTokenKey, user.token);
+    await prefs.setString(_authUserKey, jsonEncode(user.toJson()));
+
     notifyListeners();
-    
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
-    
-    final newUser = AuthUser(
-      email: '${provider.toLowerCase()}@social.com',
-      password: '',
-      name: 'Herói do $provider',
-    );
-    
-    _currentUser = newUser;
-    _isLoading = false;
-    notifyListeners();
-    return true;
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    _currentUser = null;
+    _errorMessage = null;
+
+    await prefs.remove(_authTokenKey);
+    await prefs.remove(_authUserKey);
+  }
+
+  Map<String, dynamic> _decodeBody(http.Response response) {
+    if (response.body.isEmpty) {
+      return <String, dynamic>{};
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    return <String, dynamic>{};
   }
 }
