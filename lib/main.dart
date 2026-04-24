@@ -4,8 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:flame/game.dart';
 import 'services/geolocation_service.dart';
 import 'game/pirpg_game.dart';
+import 'database/dbconnection.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await MongoDatabase.connect();
+  
   runApp(
     ChangeNotifierProvider(
       create: (_) => GeolocationService(),
@@ -13,6 +18,8 @@ void main() {
     ),
   );
 }
+  
+    
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -43,7 +50,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    // We'll initialize the game here. 
+    // We'll initialize the game here.
     // Since we need geoService from context, we'll do it in didChangeDependencies
   }
 
@@ -53,7 +60,10 @@ class _GameScreenState extends State<GameScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_initialized) {
-      final geoService = Provider.of<GeolocationService>(context, listen: false);
+      final geoService = Provider.of<GeolocationService>(
+        context,
+        listen: false,
+      );
       _game = PIRPGGame(geoService: geoService);
       _initialized = true;
     }
@@ -62,13 +72,11 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final geoService = Provider.of<GeolocationService>(context);
-    
+
     return Scaffold(
       body: Stack(
         children: [
-          GameWidget(
-            game: _game,
-          ),
+          GameWidget(game: _game),
           // Top Left: Coordinates and Campus Status
           Positioned(
             top: 40,
@@ -106,9 +114,9 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        geoService.currentPosition != null 
-                          ? "Lat: ${geoService.currentPosition!.latitude.toStringAsFixed(6)}\nLon: ${geoService.currentPosition!.longitude.toStringAsFixed(6)}"
-                          : "Buscando satélites...",
+                        geoService.currentPosition != null
+                            ? "Lat: ${geoService.currentPosition!.latitude.toStringAsFixed(6)}\nLon: ${geoService.currentPosition!.longitude.toStringAsFixed(6)}"
+                            : "Buscando satélites...",
                         style: const TextStyle(
                           color: Colors.white,
                           fontFamily: 'Courier',
@@ -118,16 +126,27 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: geoService.isInsideCampus() 
-                              ? [Colors.green.withOpacity(0.3), Colors.green.withOpacity(0.1)]
-                              : [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)],
+                            colors: geoService.isInsideCampus()
+                                ? [
+                                    Colors.green.withOpacity(0.3),
+                                    Colors.green.withOpacity(0.1),
+                                  ]
+                                : [
+                                    Colors.red.withOpacity(0.3),
+                                    Colors.red.withOpacity(0.1),
+                                  ],
                           ),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: geoService.isInsideCampus() ? Colors.greenAccent : Colors.redAccent,
+                            color: geoService.isInsideCampus()
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
                             width: 0.5,
                           ),
                         ),
@@ -135,15 +154,23 @@ class _GameScreenState extends State<GameScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              geoService.isInsideCampus() ? Icons.gps_fixed : Icons.gps_off,
-                              color: geoService.isInsideCampus() ? Colors.greenAccent : Colors.redAccent,
+                              geoService.isInsideCampus()
+                                  ? Icons.gps_fixed
+                                  : Icons.gps_off,
+                              color: geoService.isInsideCampus()
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent,
                               size: 14,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              geoService.isInsideCampus() ? "ÁREA DA PUC" : "FORA DA ÁREA",
+                              geoService.isInsideCampus()
+                                  ? "ÁREA DA PUC"
+                                  : "FORA DA ÁREA",
                               style: TextStyle(
-                                color: geoService.isInsideCampus() ? Colors.greenAccent : Colors.redAccent,
+                                color: geoService.isInsideCampus()
+                                    ? Colors.greenAccent
+                                    : Colors.redAccent,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,
                               ),
@@ -189,7 +216,11 @@ class _GameScreenState extends State<GameScreen> {
                               fontSize: 10,
                             ),
                           ),
-                          Icon(Icons.map_outlined, color: Colors.white.withOpacity(0.4), size: 14),
+                          Icon(
+                            Icons.map_outlined,
+                            color: Colors.white.withOpacity(0.4),
+                            size: 14,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -203,39 +234,57 @@ class _GameScreenState extends State<GameScreen> {
                             return Container(
                               width: 140,
                               margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.symmetric(vertical: 4), // Added inner padding
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4,
+                              ), // Added inner padding
                               decoration: BoxDecoration(
-                                gradient: isUnlocked 
-                                  ? LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [Colors.deepPurple.withOpacity(0.5), Colors.purpleAccent.withOpacity(0.3)],
-                                    )
-                                  : null,
-                                color: isUnlocked ? null : Colors.white.withOpacity(0.05),
+                                gradient: isUnlocked
+                                    ? LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Colors.deepPurple.withOpacity(0.5),
+                                          Colors.purpleAccent.withOpacity(0.3),
+                                        ],
+                                      )
+                                    : null,
+                                color: isUnlocked
+                                    ? null
+                                    : Colors.white.withOpacity(0.05),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: isUnlocked ? Colors.purpleAccent.withOpacity(0.6) : Colors.white.withOpacity(0.1),
+                                  color: isUnlocked
+                                      ? Colors.purpleAccent.withOpacity(0.6)
+                                      : Colors.white.withOpacity(0.1),
                                 ),
                               ),
                               child: Stack(
                                 children: [
                                   Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          isUnlocked ? Icons.explore : Icons.lock_outline,
-                                          color: isUnlocked ? Colors.purpleAccent : Colors.white24,
+                                          isUnlocked
+                                              ? Icons.explore
+                                              : Icons.lock_outline,
+                                          color: isUnlocked
+                                              ? Colors.purpleAccent
+                                              : Colors.white24,
                                           size: 24,
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           level['name'],
                                           style: TextStyle(
-                                            color: isUnlocked ? Colors.white : Colors.white38,
+                                            color: isUnlocked
+                                                ? Colors.white
+                                                : Colors.white38,
                                             fontSize: 12,
-                                            fontWeight: isUnlocked ? FontWeight.bold : FontWeight.normal,
+                                            fontWeight: isUnlocked
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                       ],
@@ -251,7 +300,12 @@ class _GameScreenState extends State<GameScreen> {
                                         decoration: const BoxDecoration(
                                           color: Colors.greenAccent,
                                           shape: BoxShape.circle,
-                                          boxShadow: [BoxShadow(color: Colors.greenAccent, blurRadius: 4)],
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.greenAccent,
+                                              blurRadius: 4,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -278,7 +332,10 @@ class _GameScreenState extends State<GameScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 2),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 2,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.3),
@@ -290,7 +347,11 @@ class _GameScreenState extends State<GameScreen> {
                 child: const CircleAvatar(
                   radius: 28,
                   backgroundColor: Colors.deepPurpleAccent,
-                  child: Icon(Icons.person_rounded, color: Colors.white, size: 32),
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
               ),
             ),

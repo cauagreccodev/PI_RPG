@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # PIRPG - Mobile Geolocation RPG 🌍🎮
 
 **PIRPG** é um RPG imersivo desenvolvido em **Flutter** utilizando a engine **Flame**. O projeto transforma o espaço físico do **Campus I da PUC-Campinas** em um campo de jogo dinâmico, onde a geolocalização do usuário em tempo real dita o movimento e a exploração do personagem no mundo virtual.
@@ -73,3 +74,6 @@ flutter run
 
 ## ⚖️ Licença
 Este projeto é de uso acadêmico para a PUC-Campinas Campus 1
+=======
+# PI_RPG
+>>>>>>> 091706671044a85ee7a8979f4e7c3349ad193732
