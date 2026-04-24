@@ -274,7 +274,6 @@ class _BattleScreenState extends State<BattleScreen>
             final combatButton = hitbox(0.07, 0.85, 0.36, 0.12);
             final bagButton = hitbox(0.57, 0.85, 0.36, 0.12);
             final closeButton = hitbox(0.91, 0.01, 0.08, 0.06);
-            final dialogArea = hitbox(0.08, 0.69, 0.84, 0.11);
 
             return Stack(
               children: [
@@ -284,27 +283,6 @@ class _BattleScreenState extends State<BattleScreen>
                       width: renderW,
                       height: renderH,
                       child: Image.asset(AssetPaths.battleBackground, fit: BoxFit.fill),
-                    ),
-                  ),
-                ),
-
-                // Área de texto dinâmica sobre a caixa de diálogo da arte
-                Positioned.fromRect(
-                  rect: dialogArea,
-                  child: IgnorePointer(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Text(
-                        battleLog,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
                     ),
                   ),
                 ),
