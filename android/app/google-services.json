@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "106292251398",
+    "project_id": "pi-projeto-e15f1",
+    "storage_bucket": "pi-projeto-e15f1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:106292251398:android:8676b8443ae375174e6c87",
+        "android_client_info": {
+          "package_name": "com.example.pirpg"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEu0FTSgoSnIx0_RvhSC4dIOyg70_2yfU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
