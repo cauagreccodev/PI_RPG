@@ -56,7 +56,20 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       setState(() => _isLoading = false);
       if (user == null) {
-        _showMessage('Falha na invocação (Google). Tente novamente.');
+        final error = _authService.lastError ?? 'Pop-up bloqueado?';
+        _showMessage('Falha no Google: $error');
+      }
+    }
+  }
+
+  void _handleAnonymousLogin() async {
+    setState(() => _isLoading = true);
+    final user = await _authService.signInAnonymously();
+    
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (user == null) {
+        _showMessage('O feitiço falhou. Verifique sua conexão.');
       }
     }
   }
@@ -68,7 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       setState(() => _isLoading = false);
       if (user == null) {
-        _showMessage('O feitiço de conexão falhou (Facebook).');
+        final error = _authService.lastError ?? 'Erro desconhecido';
+        _showMessage('Falha no Facebook: $error');
       }
     }
   }
@@ -141,9 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: () {
-                        _showMessage('A chave de acesso por e-mail será forjada em breve. Use Google ou Facebook!');
-                      },
+                      onPressed: _handleAnonymousLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: buttonBgColor,
                         shape: RoundedRectangleBorder(
@@ -164,8 +176,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '(Entrar como Visitante)',
+                    style: TextStyle(
+                      fontFamily: 'serif',
+                      fontSize: 14,
+                      color: copperColor,
+                    ),
+                  ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
 
                 // Divisor "OU"
                 Row(

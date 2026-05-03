@@ -1,4 +1,4 @@
-package com.cauagrecco.pirpg
+package com.example.pirpg
 
 import io.flutter.embedding.android.FlutterActivity
 

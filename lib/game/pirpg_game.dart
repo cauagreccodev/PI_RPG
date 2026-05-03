@@ -1,72 +1,82 @@
 import 'package:flame/game.dart';
-import 'package:flame/components.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/material.dart';
 import '../services/geolocation_service.dart';
+import '../models/player_state_model.dart';
+import '../services/auth_service.dart';
+
 import 'player.dart';
 
-class PIRPGGame extends FlameGame with HasGameRef {
+class PIRPGGame extends FlameGame {
   final GeolocationService geoService;
+  final PlayerStateModel playerState;
+  final AuthService authService;
   late Player player;
-  Vector2 _lastPosition = Vector2.zero();
-  
-  PIRPGGame({required this.geoService});
+
+
+  PIRPGGame({required this.geoService, required this.playerState, required this.authService});
+
+
 
   @override
   Future<void> onLoad() async {
     try {
       final tiledMap = await TiledComponent.load(
-        'map1.tmx', 
-        Vector2.all(32), // High-res tiles for better clarity
+        'map1.tmx',
+        Vector2.all(32),
         prefix: 'assets/tiles/',
       );
-      add(tiledMap);
+      tiledMap.priority = 0;
+      world.add(tiledMap);
     } catch (e) {
-      debugPrint("Could not load Tiled map: $e");
+      debugPrint("Error loading map: $e");
     }
 
     player = Player(
-      position: Vector2(160 * 2, 330 * 2), // Adjusted for 2x tile scale
+      position: Vector2(336, 672), // Centro do mapa 32x32 (672x1344)
     );
-    add(player);
+    player.priority = 10;
+    
+    world.add(player);
 
+    camera.viewfinder.zoom = 3.0; // Aumentado de 2.0 para 3.0 para ver melhor o herói
     camera.follow(player);
-    camera.viewfinder.zoom = 2.0; // Balanced zoom for 32px tiles
-    camera.viewfinder.anchor = Anchor.center;
+
+    await playerState.loadGame();
   }
 
   @override
-  Color backgroundColor() => const Color(0xFF0F172A); // Very dark slate (premium look)
+  Color backgroundColor() => const Color(0xFF0F172A);
+
 
   @override
   void update(double dt) {
     super.update(dt);
     
     if (geoService.currentPosition != null) {
-      // Map Lat/Long to Game X/Y
       double lonDiff = (geoService.currentPosition!.longitude - geoService.campusCenterLon);
       double latDiff = (geoService.campusCenterLat - geoService.currentPosition!.latitude);
-      
-      // Scale: 0.008 deg (campus width) -> 672 pixels (336 * 2)
-      double scaleX = 672 / 0.008; 
+
+      // Mapa 672x1344 (32x32 tiles)
+      double scaleX = 672 / 0.008;
       double scaleY = 1344 / 0.008;
 
       Vector2 newPosition = Vector2(
-        336 + (lonDiff * scaleX), // 168 * 2
-        672 + (latDiff * scaleY)  // 336 * 2
+        336 + (lonDiff * scaleX),
+        672 + (latDiff * scaleY),
       );
 
-      // Calculate velocity for animation
+      // Clampe para não sumir do mapa
+      newPosition.x = newPosition.x.clamp(0.0, 672.0);
+      newPosition.y = newPosition.y.clamp(0.0, 1344.0);
+
       player.velocity = (newPosition - player.position) / dt;
       player.position = newPosition;
-
-      // Update last position if needed
-      _lastPosition = newPosition.clone();
-
-      // Simple visual feedback if near a level
+      
       for (var level in geoService.levels) {
         if (geoService.isNearLevel(level)) {
-          // You are at a fase!
+          playerState.setPhase(level['name'] as String);
+
         }
       }
     }
