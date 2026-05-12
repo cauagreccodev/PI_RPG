@@ -2,6 +2,7 @@
 class AssetPaths {
   // Battle backgrounds
   static const String battleBackground = 'assets/images/battle.png';
+  static const String battleBackground2 = 'assets/images/battle2.png';
   static const String binaryEffect = 'assets/images/effects/binary_rain.png';
 
   // HUD - Inimigo

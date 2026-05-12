@@ -8,7 +8,7 @@ import '../utils/asset_generators.dart';
 class BattleScreen extends StatefulWidget {
   final String? phaseId;
 
-  const BattleScreen({Key? key, this.phaseId}) : super(key: key);
+  const BattleScreen({super.key, this.phaseId});
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -24,13 +24,16 @@ class _BattleScreenState extends State<BattleScreen>
   int enemyHp = 80;
   int enemyMaxHp = 80;
   bool isPlayerTurn = true;
-  String battleLog =
-      'O NÚCLEO DE LÓGICA X selvagem apareceu! Vá, SOLDADO!';
+  String battleLog = 'O NÚCLEO DE LÓGICA X selvagem apareceu! Vá, SOLDADO!';
   bool isAnimating = false;
   int playerLevel = 50;
   int healKits = 2;
   int skillCooldown = 0;
   bool _didInitializeFromPlayerState = false;
+
+  // Variáveis do modo Quiz
+  bool isQuizMode = false;
+  Map<String, dynamic>? currentQuiz;
 
   // Animação
   late AnimationController _damageController;
@@ -80,10 +83,80 @@ class _BattleScreenState extends State<BattleScreen>
   void _playerAttack() {
     if (isAnimating || !isPlayerTurn) return;
 
-    final damage = 10 + _rng.nextInt(16);
-    _executePlayerAction(
-      damage: damage,
-      logText: 'SOLDADO usou Luta!',
+    // Em vez de atacar direto, abre o modo quiz com dados fictícios
+    setState(() {
+      isQuizMode = true;
+      currentQuiz = {
+        'question': 'O que é a Nuvem de Computação (Cloud Computing)?',
+        'options': [
+          'Uma formação meteorológica de dados.',
+          'Entrega de recursos de TI sob demanda pela internet.',
+          'Um hardware de armazenamento externo.',
+          'Um vírus que rouba informações em rede.'
+        ],
+        'correctAnswerIndex': 1,
+      };
+    });
+  }
+
+  void _answerQuiz(int selectedIndex) {
+    if (!isQuizMode || currentQuiz == null) return;
+    
+    setState(() {
+      isQuizMode = false;
+    });
+
+    if (selectedIndex == currentQuiz!['correctAnswerIndex']) {
+      // Resposta correta: ataca
+      final damage = 15 + _rng.nextInt(10);
+      _executePlayerAction(damage: damage, logText: 'Resposta Correta!\nSOLDADO usou Luta!');
+    } else {
+      // Resposta errada: falha, inimigo ataca
+      setState(() {
+         isAnimating = true;
+         isPlayerTurn = false;
+         battleLog = 'Resposta Incorreta!\nO ataque falhou!';
+      });
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (!mounted) return;
+        _enemyAttack();
+      });
+    }
+  }
+
+  Widget _buildQuizOption(int index, String label) {
+    if (currentQuiz == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 2.0),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _answerQuiz(index),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Text(
+              '$label. ${currentQuiz!['options'][index]}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Courier',
+                shadows: [
+                  Shadow(
+                    offset: Offset(1, 1),
+                    blurRadius: 2,
+                    color: Colors.black,
+                  ),
+                ],
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -218,9 +291,9 @@ class _BattleScreenState extends State<BattleScreen>
   }
 
   void _showToast(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 1)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
+    );
   }
 
   void _closeGame() {
@@ -264,16 +337,27 @@ class _BattleScreenState extends State<BattleScreen>
             final left = (availableW - renderW) / 2;
             final top = (availableH - renderH) / 2;
 
-            Rect hitbox(double x, double y, double w, double h) => Rect.fromLTWH(
-              left + renderW * x,
-              top + renderH * y,
-              renderW * w,
-              renderH * h,
-            );
+            Rect hitbox(double x, double y, double w, double h) =>
+                Rect.fromLTWH(
+                  left + renderW * x,
+                  top + renderH * y,
+                  renderW * w,
+                  renderH * h,
+                );
 
             final combatButton = hitbox(0.07, 0.85, 0.36, 0.12);
             final bagButton = hitbox(0.57, 0.85, 0.36, 0.12);
             final closeButton = hitbox(0.91, 0.01, 0.08, 0.06);
+
+            /// Sub-painel de dados do vilão (abaixo do bloco de título na arte).
+            final villainDataPanel = hitbox(0.02, 0.178, 0.46, 0.148);
+
+            /// Display tático do soldado (canto superior direito).
+            final soldierDataPanel = hitbox(0.62, 0.08, 0.34, 0.14);
+            final battleLogArea = hitbox(0.05, 0.65, 0.90, 0.11);
+
+            final quizQuestionArea = hitbox(0.05, 0.63, 0.90, 0.13);
+            final quizAnswersArea = hitbox(0.05, 0.78, 0.90, 0.19);
 
             return Stack(
               children: [
@@ -282,40 +366,146 @@ class _BattleScreenState extends State<BattleScreen>
                     child: SizedBox(
                       width: renderW,
                       height: renderH,
-                      child: Image.asset(AssetPaths.battleBackground, fit: BoxFit.fill),
+                      child: Image.asset(
+                        isQuizMode ? AssetPaths.battleBackground2 : AssetPaths.battleBackground,
+                        fit: BoxFit.fill,
+                      ),
                     ),
                   ),
                 ),
 
-                // Hitbox: COMBATE
-                if (!isGameOver)
+                Positioned.fromRect(
+                  rect: villainDataPanel,
+                  child: IgnorePointer(
+                    child: VillainHealthField(hp: enemyHp, maxHp: enemyMaxHp),
+                  ),
+                ),
+
+                Positioned.fromRect(
+                  rect: soldierDataPanel,
+                  child: IgnorePointer(
+                    child: SoldierHealthField(
+                      hp: playerHp,
+                      maxHp: playerMaxHp,
+                      level: playerLevel,
+                    ),
+                  ),
+                ),
+
+                // Mensagem inferior (pixel text; botões permanecem na arte)
+                if (!isQuizMode) ...[
                   Positioned.fromRect(
-                    rect: combatButton,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _playerAttack,
-                        borderRadius: BorderRadius.circular(16),
-                        splashColor: Colors.white24,
-                        highlightColor: Colors.transparent,
+                    rect: battleLogArea,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        battleLog,
+                        textAlign: TextAlign.left,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Courier',
+                          shadows: [
+                            Shadow(
+                              offset: Offset(1, 1),
+                              blurRadius: 2,
+                              color: Colors.black,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
 
-                // Hitbox: MOCHILA
-                if (!isGameOver)
+                  // Hitbox: COMBATE
+                  if (!isGameOver)
+                    Positioned.fromRect(
+                      rect: combatButton,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _playerAttack,
+                          borderRadius: BorderRadius.circular(16),
+                          splashColor: Colors.white24,
+                          highlightColor: Colors.transparent,
+                        ),
+                      ),
+                    ),
+
+                  // Hitbox: MOCHILA
+                  if (!isGameOver)
+                    Positioned.fromRect(
+                      rect: bagButton,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openBackpack,
+                          borderRadius: BorderRadius.circular(16),
+                          splashColor: Colors.white24,
+                          highlightColor: Colors.transparent,
+                        ),
+                      ),
+                    ),
+                ] else ...[
+                  // Modo Quiz
                   Positioned.fromRect(
-                    rect: bagButton,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _openBackpack,
-                        borderRadius: BorderRadius.circular(16),
-                        splashColor: Colors.white24,
-                        highlightColor: Colors.transparent,
+                    rect: quizQuestionArea,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          currentQuiz!['question'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Courier',
+                            shadows: [
+                              Shadow(
+                                offset: Offset(1, 1),
+                                blurRadius: 2,
+                                color: Colors.black,
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
                   ),
+                  Positioned.fromRect(
+                    rect: quizAnswersArea,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(child: _buildQuizOption(0, 'A')),
+                                Expanded(child: _buildQuizOption(2, 'C')),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(child: _buildQuizOption(1, 'B')),
+                                Expanded(child: _buildQuizOption(3, 'D')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
 
                 // Hitbox: fechar
                 Positioned.fromRect(
@@ -337,7 +527,11 @@ class _BattleScreenState extends State<BattleScreen>
                       child: Center(
                         child: ElevatedButton(
                           onPressed: _closeGame,
-                          child: Text(enemyHp <= 0 ? 'Vitória - Voltar' : 'Derrota - Voltar'),
+                          child: Text(
+                            enemyHp <= 0
+                                ? 'Vitória - Voltar'
+                                : 'Derrota - Voltar',
+                          ),
                         ),
                       ),
                     ),
@@ -377,7 +571,7 @@ class _BattleScreenState extends State<BattleScreen>
   }
 
   Widget _buildEnemySprite() {
-    return Container(
+    return SizedBox(
       width: 150,
       height: 150,
       child: AnimatedContainer(
@@ -401,224 +595,50 @@ class _BattleScreenState extends State<BattleScreen>
         child: Stack(
           alignment: Alignment.center,
           children: [
-          // Telas vermelhas (efeito de acesso negado)
-          Positioned(
-            top: 30,
-            left: 30,
-            child: Container(
-              width: 50,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.red[900],
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.red[400]!, width: 2),
-              ),
-              child: const Center(
-                child: Text(
-                  'X',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+            // Telas vermelhas (efeito de acesso negado)
+            Positioned(
+              top: 30,
+              left: 30,
+              child: Container(
+                width: 50,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.red[900],
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.red[400]!, width: 2),
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 30,
-            right: 30,
-            child: Container(
-              width: 50,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.red[900],
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.red[400]!, width: 2),
-              ),
-              child: const Center(
-                child: Text(
-                  'X',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-}
-
-// Widget HUD do Inimigo
-class EnemyHUD extends StatelessWidget {
-  final int hp;
-  final int maxHp;
-
-  const EnemyHUD({Key? key, required this.hp, required this.maxHp})
-    : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    double healthPercent = hp / maxHp;
-
-    return AssetGenerators.generateHudFrame(
-      borderColor: Colors.cyan,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'NÚCLEO DE LÓGICA X',
-            style: TextStyle(
-              color: Colors.cyan,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Courier',
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'VER: ALPHA',
-            style: TextStyle(
-              color: Colors.cyan,
-              fontSize: 12,
-              fontFamily: 'Courier',
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Info de HP
-          Text(
-            'HP: $hp/$maxHp',
-            style: const TextStyle(
-              color: Colors.cyan,
-              fontSize: 11,
-              fontFamily: 'Courier',
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Barra de vida do inimigo
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: healthPercent,
-              minHeight: 20,
-              backgroundColor: Colors.grey[800],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                healthPercent > 0.5
-                    ? Colors.red
-                    : healthPercent > 0.25
-                    ? Colors.orange
-                    : Colors.red[900]!,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Widget HUD do Jogador
-class PlayerHUD extends StatelessWidget {
-  final int hp;
-  final int maxHp;
-  final int level;
-
-  const PlayerHUD({
-    Key? key,
-    required this.hp,
-    required this.maxHp,
-    required this.level,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    double healthPercent = hp / maxHp;
-    double shieldPercent = 0.6; // Escudo fixo por enquanto
-
-    return AssetGenerators.generateHudFrame(
-      borderColor: Colors.lightBlue,
-      child: SizedBox(
-        width: 220,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Nome e Nível
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'SOLDADO',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blueGrey,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+                child: const Center(
                   child: Text(
-                    'Lv $level',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                    'X',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // HP
-            Text(
-              'HP: $hp/$maxHp',
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-            ),
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: healthPercent,
-                minHeight: 16,
-                backgroundColor: Colors.grey[700],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  healthPercent > 0.5
-                      ? Colors.green
-                      : healthPercent > 0.25
-                      ? Colors.orange
-                      : Colors.red,
-                ),
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Escudo
-            Text(
-              'Escudo: ${(shieldPercent * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(color: Colors.lightBlue, fontSize: 10),
-            ),
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: shieldPercent,
-                minHeight: 12,
-                backgroundColor: Colors.grey[700],
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Colors.lightBlue,
+            Positioned(
+              top: 30,
+              right: 30,
+              child: Container(
+                width: 50,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.red[900],
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.red[400]!, width: 2),
+                ),
+                child: const Center(
+                  child: Text(
+                    'X',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -627,6 +647,454 @@ class PlayerHUD extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Estilo de texto pixel / terminal comum ao HUD da batalha.
+class _BattleHudText {
+  static const TextStyle whiteHud = TextStyle(
+    color: Color(0xFFE8E8E8),
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    fontFamily: 'Courier',
+    letterSpacing: 0.4,
+    height: 1.15,
+    shadows: [
+      Shadow(offset: Offset(1, 1), blurRadius: 0, color: Colors.black87),
+    ],
+  );
+
+  static TextStyle flavorEnemy(double fontSize) => TextStyle(
+    color: Color.lerp(const Color(0xFFFF5252), const Color(0xFF7B1FA2), 0.45)!,
+    fontSize: fontSize,
+    fontWeight: FontWeight.w600,
+    fontFamily: 'Courier',
+    letterSpacing: 0.3,
+    height: 1.2,
+  );
+
+  static TextStyle flavorSoldier(double fontSize) => TextStyle(
+    color: const Color(0xFF4FC3F7),
+    fontSize: fontSize,
+    fontWeight: FontWeight.w600,
+    fontFamily: 'Courier',
+    letterSpacing: 0.25,
+    height: 1.2,
+    shadows: const [
+      Shadow(offset: Offset(1, 1), blurRadius: 0, color: Colors.black54),
+    ],
+  );
+}
+
+/// Sub-painel do vilão: metal, parafusos, tela estilo corpo do chefe.
+class VillainHealthField extends StatelessWidget {
+  final int hp;
+  final int maxHp;
+
+  const VillainHealthField({super.key, required this.hp, required this.maxHp});
+
+  @override
+  Widget build(BuildContext context) {
+    final double healthPercent = maxHp > 0 ? hp / maxHp : 0.0;
+    final int percentage = (healthPercent * 100).clamp(0, 100).round();
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.grey.shade900,
+            const Color(0xFF383838),
+            const Color(0xFF1A0A14),
+          ],
+        ),
+        border: Border.all(color: const Color(0xFF5D4037), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.65),
+            blurRadius: 6,
+            offset: const Offset(2, 3),
+          ),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _BossEnergyHpBar(value: healthPercent.clamp(0.0, 1.0)),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'HP: $hp / $maxHp',
+                        style: _BattleHudText.whiteHud.copyWith(fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      '$percentage%',
+                      style: _BattleHudText.whiteHud.copyWith(
+                        fontSize: 12,
+                        color: const Color(0xFFFFCDD2),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('SOMBRA METÁLICA', style: _BattleHudText.flavorEnemy(9)),
+                Text(
+                  'ARMADURA NEGRA ATIVADA',
+                  style: _BattleHudText.flavorEnemy(9),
+                ),
+              ],
+            ),
+          ),
+          ..._cornerBolts(),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _cornerBolts() {
+    const r = 5.0;
+    const o = 4.0;
+    Widget bolt() => Container(
+      width: r * 2,
+      height: r * 2,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [Colors.grey.shade600, Colors.grey.shade900],
+        ),
+        border: Border.all(color: Colors.grey.shade800, width: 1),
+      ),
+    );
+    return [
+      Positioned(left: o, top: o, child: bolt()),
+      Positioned(right: o, top: o, child: bolt()),
+      Positioned(left: o, bottom: o, child: bolt()),
+      Positioned(right: o, bottom: o, child: bolt()),
+    ];
+  }
+}
+
+/// Barra vilão: grade energética, vermelho profundo → roxo sombrio.
+class _BossEnergyHpBar extends StatelessWidget {
+  final double value;
+
+  const _BossEnergyHpBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    const h = 18.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: h,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF2D0A24), Color(0xFF120818)],
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              widthFactor: value.clamp(0.0, 1.0),
+              child: CustomPaint(
+                painter: _BossHpFillPainter(),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            CustomPaint(
+              painter: _EnergyGridOverlayPainter(),
+              child: const SizedBox.expand(),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BossHpFillPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Color(0xFFB71C1C), Color(0xFF7B1FA2), Color(0xFF4A148C)],
+      ).createShader(rect);
+    canvas.drawRect(rect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BossHpFillPainter oldDelegate) => false;
+}
+
+class _EnergyGridOverlayPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final g = Paint()
+      ..color = Colors.white.withValues(alpha: 0.22)
+      ..strokeWidth = 1;
+    const step = 5.0;
+    for (double x = 0; x <= size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), g);
+    }
+    for (double y = 0; y <= size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), g);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EnergyGridOverlayPainter oldDelegate) => false;
+}
+
+/// Painel tático do soldado: grade, ícone, HP verde→azul.
+class SoldierHealthField extends StatelessWidget {
+  final int hp;
+  final int maxHp;
+  final int level;
+
+  const SoldierHealthField({
+    super.key,
+    required this.hp,
+    required this.maxHp,
+    required this.level,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double healthPercent = maxHp > 0 ? hp / maxHp : 0.0;
+    final int percentage = (healthPercent * 100).clamp(0, 100).round();
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0D1B2A),
+            const Color(0xFF102A43),
+            const Color(0xFF061018),
+          ],
+        ),
+        border: Border.all(color: const Color(0xFF546E7A), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.cyan.withValues(alpha: 0.12),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(painter: _TacticalGridBgPainter()),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.asset(
+                        AssetPaths.playerSprite,
+                        width: 28,
+                        height: 28,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          width: 28,
+                          height: 28,
+                          color: Colors.blueGrey.shade800,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.white54,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Soldado',
+                        style: _BattleHudText.flavorSoldier(9),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ESTADO DE COMBATE',
+                  style: _BattleHudText.flavorSoldier(7),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: _TacticalEnergyHpBar(
+                    value: healthPercent.clamp(0.0, 1.0),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'HP: $hp / $maxHp',
+                        style: _BattleHudText.whiteHud.copyWith(fontSize: 11),
+                      ),
+                    ),
+                    Text(
+                      '$percentage%',
+                      style: _BattleHudText.whiteHud.copyWith(
+                        fontSize: 12,
+                        color: const Color(0xFFB9F6CA),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          ..._soldierCornerBolts(),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _soldierCornerBolts() {
+    const r = 5.0;
+    const o = 4.0;
+    Widget bolt() => Container(
+      width: r * 2,
+      height: r * 2,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [Colors.blueGrey.shade400, Colors.blueGrey.shade900],
+        ),
+        border: Border.all(color: Colors.cyan.withValues(alpha: 0.35)),
+      ),
+    );
+    return [
+      Positioned(left: o, top: o, child: bolt()),
+      Positioned(right: o, top: o, child: bolt()),
+      Positioned(left: o, bottom: o, child: bolt()),
+      Positioned(right: o, bottom: o, child: bolt()),
+    ];
+  }
+}
+
+/// Grade tática bem sutil sobre o painel do soldado.
+class _TacticalGridBgPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.06)
+      ..strokeWidth = 1;
+    const step = 12.0;
+    for (double x = 0; x <= size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
+    }
+    for (double y = 0; y <= size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TacticalGridBgPainter oldDelegate) => false;
+}
+
+/// Barra soldado: leitura energia tática verde → azul.
+class _TacticalEnergyHpBar extends StatelessWidget {
+  final double value;
+
+  const _TacticalEnergyHpBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    const h = 18.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: h,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(color: const Color(0xFF0A1628)),
+            Align(
+              alignment: Alignment.centerLeft,
+              widthFactor: value.clamp(0.0, 1.0),
+              child: CustomPaint(
+                painter: _SoldierHpFillPainter(),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            CustomPaint(
+              painter: _EnergyGridOverlayPainter(),
+              child: const SizedBox.expand(),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: const Color(0xFF4FC3F7).withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoldierHpFillPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Color(0xFF00C853), Color(0xFF00ACC1), Color(0xFF0277BD)],
+      ).createShader(rect);
+    canvas.drawRect(rect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SoldierHpFillPainter oldDelegate) => false;
 }
 
 // Widget de Botões de Ação
@@ -641,7 +1109,7 @@ class ActionButtons extends StatelessWidget {
   final int skillCooldown;
 
   const ActionButtons({
-    Key? key,
+    super.key,
     required this.onFight,
     required this.onAbility,
     required this.onBackpack,
@@ -650,7 +1118,7 @@ class ActionButtons extends StatelessWidget {
     required this.isBusy,
     required this.healKits,
     required this.skillCooldown,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -677,7 +1145,9 @@ class ActionButtons extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _ActionButton(
-                  label: skillCooldown == 0 ? 'Habilidade' : 'Recarga $skillCooldown',
+                  label: skillCooldown == 0
+                      ? 'Habilidade'
+                      : 'Recarga $skillCooldown',
                   enabled: enabled && skillCooldown == 0,
                   onTap: onAbility,
                 ),
@@ -763,7 +1233,7 @@ class _ActionButton extends StatelessWidget {
 class DialogBoxWidget extends StatelessWidget {
   final String text;
 
-  const DialogBoxWidget({Key? key, required this.text}) : super(key: key);
+  const DialogBoxWidget({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {

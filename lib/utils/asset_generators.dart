@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 
 /// Classe com geradores de assets visuais simples para testes rápidos
 /// Use para prototipagem antes de ter os assets finais
